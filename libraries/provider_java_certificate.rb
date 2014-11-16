@@ -25,16 +25,13 @@ class Chef::Provider::JavaCertificate < Chef::Provider::LWRPBase
 
   action :install do
       
-      directory "#{Chef::Config[:file_cache_path]}"
-      
-      java_home = new_resource.java_home
-      java_home = node['java']['java_home'] if java_home.nil?
-      keytool = "#{java_home}/bin/keytool"
+      java_home = get_java_home
+      keytool = build_keytool_path
 
       truststore = new_resource.keystore_path
       truststore_passwd = new_resource.keystore_passwd
       
-      truststore = "#{node['java']['java_home']}/jre/lib/security/cacerts" if truststore.nil?
+      truststore = "#{java_home}/jre/lib/security/cacerts" if truststore.nil?
       truststore_passwd = "changeit" if truststore_passwd.nil?
 
       certalias = new_resource.cert_alias
@@ -110,17 +107,17 @@ class Chef::Provider::JavaCertificate < Chef::Provider::LWRPBase
 
   action :remove do
       
-      directory "#{Chef::Config[:file_cache_path]}"
-      
       certalias = new_resource.name
+      java_home = get_java_home
+      keytool = build_keytool_path
 
       truststore = new_resource.keystore_path
       truststore_passwd = new_resource.keystore_passwd
       
-      truststore = "#{node['java']['java_home']}/jre/lib/security/cacerts" if truststore.nil?
+      truststore = "#{java_home}/jre/lib/security/cacerts" if truststore.nil?
       truststore_passwd = "changeit" if truststore_passwd.nil?
           
-      keytool = "#{node['java']['java_home']}/bin/keytool"
+      keytool = "#{java_home}/bin/keytool"
 
       has_key = !`#{keytool} -list -keystore #{truststore} -storepass #{truststore_passwd} -v | grep "#{certalias}"`[/Alias name: #{certalias}/].nil?
       Chef::Application.fatal!("Error querying keystore for existing certificate: #{$?}", $?.to_s[/exit (\d+)/, 1].to_i) unless $?.success?
@@ -134,5 +131,29 @@ class Chef::Provider::JavaCertificate < Chef::Provider::LWRPBase
       
       FileUtils.rm_f("#{Chef::Config[:file_cache_path]}/#{certalias}.cert.*")
       
+  end
+
+
+  # Build the path of the keytool command based on the JAVA HOME.
+  #
+  # On windows, this path is surrounded by double quotes
+  # in order to take care of white spaces (C:/Program Files/...).
+  #
+  # @return String The keytool path.
+  def build_keytool_path
+    keytool = ::File.join(get_java_home, "/bin/keytool")
+    if platform_family?("windows")
+      keytool = %Q{"#{keytool}"}
+    else 
+      keytool
+    end
+  end
+
+  # Return the JAVA HOME path considering first the java_home resource attribute
+  #  then the ['java']['java_home'] node attribute.
+  #
+  # return [String] The JAVA HOME path. 
+  def get_java_home
+    new_resource.java_home || node['java']['java_home']
   end
 end
