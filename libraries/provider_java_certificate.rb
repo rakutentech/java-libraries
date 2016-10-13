@@ -19,9 +19,12 @@
 # limitations under the License.
 
 require "digest/sha2"
+require "openssl"
 require "fileutils"
 
 class Chef::Provider::JavaCertificate < Chef::Provider::LWRPBase  
+
+  include Chef::Mixin::ShellOut
 
   action :install do
       
@@ -73,7 +76,15 @@ class Chef::Provider::JavaCertificate < Chef::Provider::LWRPBase
       
       hash = Digest::SHA512.hexdigest(certdata)
       certfile = "#{Chef::Config[:file_cache_path]}/#{certalias}.cert.#{hash}"
-      unless ::File.exists?(certfile)
+      keystore_cert = %x[#{keytool} -list -keystore #{truststore} -storepass #{truststore_passwd} -rfc -alias \"#{certalias}\"].match(/^[-]+BEGIN.*END(\s|\w)+[-]+$/m).to_s
+
+      if keystore_cert.empty?
+        keystore_cert_digest = nil
+      else
+        keystore_cert_digest = Digest::SHA512.hexdigest(OpenSSL::X509::Certificate.new(keystore_cert).to_der)
+      end
+      certfile_digest = Digest::SHA512.hexdigest(OpenSSL::X509::Certificate.new(certdata).to_der)
+      unless keystore_cert_digest == certfile_digest
           
           result = `#{keytool} -list -keystore #{truststore} -storepass #{truststore_passwd} -v`
           Chef::Log.debug("Executing: #{keytool} -list -keystore #{truststore} -storepass #{truststore_passwd} -v | grep \"#{certalias}\"\n#{result}")
