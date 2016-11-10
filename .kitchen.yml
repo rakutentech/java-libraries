@@ -1,0 +1,24 @@
+driver:
+  name: vagrant
+
+provisioner:
+  name: chef_zero
+  attributes:
+    java:
+      ark_retries: 2
+      ark_retry_delay: 10
+
+platforms:
+  - name: centos-7.1
+    driver:
+    box: box-cutter/centos71
+
+suites:
+  - name: default
+    run_list:
+      - recipe[java_libraries_test]
+    attributes:
+      java:
+        oracle:
+          accept_oracle_download_terms: true
+        install_flavor: oracle
