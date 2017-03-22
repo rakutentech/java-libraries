@@ -34,5 +34,6 @@ class Chef::Resource::JavaCertificate < Chef::Resource::LWRPBase
   attribute :cert_data, :kind_of => String, :default => nil
   attribute :cert_file, :kind_of => String, :default => nil
   attribute :ssl_endpoint, :kind_of => String, :default => nil
+  attribute :server_name, :kind_of => String, :default => nil
 
 end
